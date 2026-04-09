@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BusGate — Passenger Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --ink:#05080f;
+  --ink2:#0b1120;
+  --ink3:#111c30;
+  --ink4:#1a2840;
+  --wire:#223352;
+  --wire2:#2e4268;
+  --teal:#00e5b4;
+  --teal2:#00b88f;
+  --teal-dim:rgba(0,229,180,.08);
+  --teal-glow:rgba(0,229,180,.18);
+  --red:#ff4757;
+  --red-dim:rgba(255,71,87,.08);
+  --amber:#ffb020;
+  --amber-dim:rgba(255,176,32,.08);
+  --blue:#3d9bff;
+  --blue-dim:rgba(61,155,255,.08);
+  --text:#c8daf0;
+  --text2:#6b8aaa;
+  --text3:#3d5470;
+  --font-display:'Bebas Neue',sans-serif;
+  --font-body:'DM Sans',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --r:10px;
+  --r2:16px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+html{scroll-behavior:smooth}
+body{
+  background:var(--ink);
+  color:var(--text);
+  font-family:var(--font-body);
+  font-size:14px;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ═══════════════════════════════ SCROLLBAR */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--wire2);border-radius:2px}
+
+/* ═══════════════════════════════ BACKGROUND GRID */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,229,180,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,180,.025) 1px, transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ═══════════════════════════════ LAYOUT */
+.shell{position:relative;z-index:1;display:grid;grid-template-rows:auto 1fr auto;min-height:100vh}
+
+/* ═══════════════════════════════ TOPBAR */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;height:58px;
+  background:rgba(5,8,15,.85);
+  border-bottom:1px solid var(--wire);
+  backdrop-filter:blur(12px);
+  position:sticky;top:0;z-index:200;
+}
+.hd-left{display:flex;align-items:center;gap:16px}
+.logo-mark{
+  width:36px;height:36px;border-radius:8px;
+  background:var(--teal);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.logo-mark svg{width:20px;height:20px;fill:var(--ink)}
+.brand-stack{}
+.brand-name{
+  font-family:var(--font-display);
+  font-size:22px;letter-spacing:2px;
+  color:#fff;line-height:1;
+}
+.brand-tagline{
+  font-size:9px;font-family:var(--font-mono);
+  color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;
+  line-height:1;margin-top:2px;
+}
+.hd-center{display:flex;align-items:center;gap:6px}
+.nav-pill{
+  padding:5px 14px;border-radius:20px;
+  font-size:11px;font-family:var(--font-mono);
+  color:var(--text2);cursor:pointer;
+  border:1px solid transparent;
+  transition:all .2s;letter-spacing:.5px;
+}
+.nav-pill:hover{color:var(--text);border-color:var(--wire)}
+.nav-pill.active{
+  background:var(--teal-dim);
+  border-color:rgba(0,229,180,.25);
+  color:var(--teal);
+}
+.hd-right{display:flex;align-items:center;gap:12px}
+.conn-badge{
+  display:flex;align-items:center;gap:7px;
+  padding:5px 12px;border-radius:20px;
+  border:1px solid var(--wire);
+  font-size:10px;font-family:var(--font-mono);
+  color:var(--text3);letter-spacing:.5px;
+}
+.conn-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);flex-shrink:0}
+.conn-dot.live{background:var(--teal);box-shadow:0 0 6px var(--teal);animation:throb 2s infinite}
+@keyframes throb{0%,100%{opacity:1}50%{opacity:.4}}
+.clock{
+  font-family:var(--font-display);font-size:20px;
+  color:var(--text2);letter-spacing:2px;min-width:76px;text-align:right;
+}
+
+/* ═══════════════════════════════ MAIN GRID */
+.main{
+  display:grid;
+  grid-template-columns:280px 1fr;
+  overflow:hidden;
+  flex:1;
+}
+@media(max-width:900px){.main{grid-template-columns:1fr}}
+
+/* ═══════════════════════════════ SIDEBAR */
+.sidebar{
+  background:var(--ink2);
+  border-right:1px solid var(--wire);
+  overflow-y:auto;
+  padding:20px 14px;
+  display:flex;flex-direction:column;gap:6px;
+}
+.sidebar-section{
+  font-size:9px;font-family:var(--font-mono);
+  text-transform:uppercase;letter-spacing:1.5px;
+  color:var(--text3);padding:6px 8px 4px;
+  margin-top:8px;
+}
+.sidebar-section:first-child{margin-top:0}
+
+/* Bus card */
+.bus-card{
+  border-radius:var(--r);
+  border:1px solid var(--wire);
+  background:var(--ink3);
+  padding:13px 14px;
+  cursor:pointer;
+  transition:border-color .2s,background .2s;
+  position:relative;overflow:hidden;
+}
+.bus-card::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--wire2);transition:background .2s;
+}
+.bus-card:hover{border-color:var(--wire2);background:var(--ink4)}
+.bus-card.sel{border-color:rgba(0,229,180,.3);background:var(--teal-dim)}
+.bus-card.sel::before{background:var(--teal)}
+.bc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.bc-id{font-family:var(--font-display);font-size:18px;letter-spacing:1px;color:#fff}
+.bc-badge{
+  font-size:8px;font-family:var(--font-mono);
+  padding:2px 8px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase;
+}
+.bc-badge.active{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(0,229,180,.2)}
+.bc-badge.idle{background:rgba(74,100,128,.12);color:var(--text3);border:1px solid var(--wire)}
+.bc-route{font-size:11px;color:var(--text2);margin-bottom:2px}
+.bc-stop{font-size:10px;font-family:var(--font-mono);color:var(--text3);margin-bottom:10px}
+.bc-occ-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.bc-occ-nums{font-size:10px;font-family:var(--font-mono);color:var(--text2)}
+.bc-occ-pct{font-size:10px;font-family:var(--font-mono)}
+.occ-track{height:4px;background:var(--ink);border-radius:2px;overflow:hidden}
+.occ-fill{height:100%;border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+
+/* Alert box */
+.alert-card{
+  border-radius:var(--r);padding:12px 14px;margin-top:4px;
+  border:1px solid var(--wire);
+}
+.alert-card.ok{background:rgba(0,229,180,.04);border-color:rgba(0,229,180,.15)}
+.alert-card.warn{background:var(--amber-dim);border-color:rgba(255,176,32,.25);animation:alertpulse 3s infinite}
+@keyframes alertpulse{0%,100%{border-color:rgba(255,176,32,.25)}50%{border-color:rgba(255,176,32,.5)}}
+.alert-icon{font-size:9px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.alert-card.ok .alert-icon{color:var(--teal)}
+.alert-card.warn .alert-icon{color:var(--amber)}
+.alert-msg{font-size:11px;color:var(--text2);line-height:1.5}
+
+/* ═══════════════════════════════ CONTENT */
+.content{overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px}
+
+/* ═══════════════════════════════ METRIC STRIP */
+.metric-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:700px){.metric-strip{grid-template-columns:repeat(2,1fr)}}
+
+.mcard{
+  background:var(--ink2);
+  border:1px solid var(--wire);
+  border-radius:var(--r2);
+  padding:18px 20px;
+  position:relative;overflow:hidden;
+  transition:border-color .2s,transform .2s;
+}
+.mcard:hover{border-color:var(--wire2);transform:translateY(-1px)}
+.mcard-corner{
+  position:absolute;top:0;right:0;
+  width:60px;height:60px;
+  border-radius:0 var(--r2) 0 60px;
+  opacity:.07;
+}
+.mcard-lbl{
+  font-size:9px;font-family:var(--font-mono);
+  text-transform:uppercase;letter-spacing:1.5px;
+  color:var(--text3);margin-bottom:10px;
+}
+.mcard-val{
+  font-family:var(--font-display);
+  font-size:44px;letter-spacing:1px;
+  line-height:1;
+  transition:color .3s;
+}
+.mcard-sub{font-size:11px;color:var(--text3);margin-top:6px}
+.mcard-delta{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-family:var(--font-mono);
+  padding:2px 8px;border-radius:20px;margin-top:8px;
+}
+.delta-up{background:var(--teal-dim);color:var(--teal)}
+.delta-dn{background:var(--red-dim);color:var(--red)}
+.delta-neutral{background:var(--blue-dim);color:var(--blue)}
+
+/* ═══════════════════════════════ CAMERA PANEL */
+.cam-panel{
+  background:var(--ink2);border:1px solid var(--wire);
+  border-radius:var(--r2);overflow:hidden;
+}
+.cam-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;border-bottom:1px solid var(--wire);
+  flex-wrap:wrap;gap:10px;
+}
+.cam-title-group{}
+.cam-title{
+  font-family:var(--font-display);font-size:16px;letter-spacing:1px;color:#fff;
+}
+.cam-subtitle{font-size:10px;font-family:var(--font-mono);color:var(--text3);margin-top:1px}
+.cam-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{
+  padding:7px 16px;border-radius:8px;
+  font-size:11px;font-weight:500;font-family:var(--font-mono);
+  cursor:pointer;border:1px solid var(--wire);
+  background:transparent;color:var(--text2);
+  letter-spacing:.5px;transition:all .15s;
+}
+.btn:hover{background:var(--ink4);color:var(--text);border-color:var(--wire2)}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.3;cursor:not-allowed;pointer-events:none}
+.btn-go{
+  background:var(--teal);color:var(--ink);
+  border-color:var(--teal);font-weight:500;
+}
+.btn-go:hover{background:var(--teal2);border-color:var(--teal2);color:var(--ink)}
+.btn-stop{
+  background:var(--red-dim);color:var(--red);
+  border-color:rgba(255,71,87,.3);
+}
+.btn-stop:hover{background:rgba(255,71,87,.18)}
+.btn-reset{
+  background:var(--amber-dim);color:var(--amber);
+  border-color:rgba(255,176,32,.3);
+}
+
+.cam-body{display:grid;grid-template-columns:1fr 260px}
+@media(max-width:680px){.cam-body{grid-template-columns:1fr}}
+
+.cam-view{
+  background:#000;position:relative;
+  min-height:260px;
+}
+#camFeed{width:100%;height:100%;object-fit:cover;display:none;vertical-align:top}
+.cam-idle{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+}
+.cam-idle-icon{
+  width:52px;height:52px;border-radius:50%;
+  background:var(--ink3);border:1px solid var(--wire);
+  display:flex;align-items:center;justify-content:center;
+}
+.cam-idle-icon svg{width:24px;height:24px;stroke:var(--text3);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.cam-idle p{font-size:12px;color:var(--text3);font-family:var(--font-mono)}
+.cam-idle small{font-size:10px;color:var(--text3);opacity:.6}
+.rec-badge{
+  position:absolute;top:10px;right:10px;
+  display:none;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:20px;
+  background:rgba(255,71,87,.85);
+  font-size:9px;font-family:var(--font-mono);
+  color:#fff;letter-spacing:1px;text-transform:uppercase;
+}
+.cam-stats{
+  border-left:1px solid var(--wire);
+  padding:16px;display:flex;flex-direction:column;gap:14px;
+  background:var(--ink3);
+}
+.cs-item{}
+.cs-lbl{font-size:9px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:3px}
+.cs-val{font-family:var(--font-display);font-size:26px;letter-spacing:1px;line-height:1}
+.cs-val.green{color:var(--teal)}
+.cs-val.red{color:var(--red)}
+.cs-val.blue{color:var(--blue)}
+.cs-val.plain{color:var(--text)}
+.cs-mode{font-size:10px;font-family:var(--font-mono);color:var(--blue)}
+
+.line-strip{
+  padding:12px 20px;border-top:1px solid var(--wire);
+  display:flex;align-items:center;gap:14px;
+  background:var(--ink2);
+}
+.line-lbl{font-size:10px;font-family:var(--font-mono);color:var(--text3);white-space:nowrap}
+.line-val{font-size:10px;font-family:var(--font-mono);color:var(--teal);min-width:30px}
+input[type=range]{
+  flex:1;height:3px;border-radius:2px;
+  background:var(--wire);outline:none;
+  -webkit-appearance:none;accent-color:var(--teal);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;
+  border-radius:50%;background:var(--teal);cursor:pointer;
+  border:2px solid var(--ink);
+  box-shadow:0 0 8px rgba(0,229,180,.4);
+}
+
+/* ═══════════════════════════════ TWO COL */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:700px){.two-col{grid-template-columns:1fr}}
+
+/* ═══════════════════════════════ PANEL */
+.panel{
+  background:var(--ink2);border:1px solid var(--wire);
+  border-radius:var(--r2);overflow:hidden;
+}
+.panel-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:13px 18px;border-bottom:1px solid var(--wire);
+}
+.panel-title{
+  font-family:var(--font-display);font-size:14px;
+  letter-spacing:1.5px;color:#fff;text-transform:uppercase;
+}
+.panel-action{
+  font-size:10px;font-family:var(--font-mono);
+  padding:3px 10px;border-radius:20px;
+  border:1px solid var(--wire);background:transparent;
+  color:var(--text3);cursor:pointer;letter-spacing:.5px;
+  transition:all .15s;
+}
+.panel-action:hover{color:var(--text);border-color:var(--wire2)}
+.chart-body{padding:16px;position:relative}
+
+/* ═══════════════════════════════ LOG */
+.log-scroll{max-height:240px;overflow-y:auto;padding:8px 12px 12px}
+.log-entry{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 10px;border-radius:8px;margin-bottom:4px;
+  font-size:11px;border-left:2px solid transparent;
+  transition:background .15s;
+}
+.log-entry:hover{background:var(--ink3)}
+.log-entry.BOARD{border-color:var(--teal);background:rgba(0,229,180,.03)}
+.log-entry.DEBOARD{border-color:var(--red);background:rgba(255,71,87,.03)}
+.log-t{
+  font-family:var(--font-mono);color:var(--text3);
+  font-size:10px;min-width:56px;flex-shrink:0;
+}
+.log-bus-tag{
+  font-family:var(--font-mono);font-size:9px;
+  padding:1px 6px;border-radius:4px;
+  background:var(--blue-dim);color:var(--blue);
+  flex-shrink:0;
+}
+.log-type-tag{
+  font-size:9px;font-family:var(--font-mono);
+  padding:1px 7px;border-radius:20px;
+  flex-shrink:0;text-transform:uppercase;letter-spacing:.5px;
+}
+.lt-board{background:var(--teal-dim);color:var(--teal)}
+.lt-deboard{background:var(--red-dim);color:var(--red)}
+.log-stop{flex:1;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-conf{font-family:var(--font-mono);font-size:10px;color:var(--text3);flex-shrink:0}
+.log-empty{
+  padding:28px;text-align:center;
+  font-size:11px;font-family:var(--font-mono);color:var(--text3);
+}
+
+/* ═══════════════════════════════ STOP TABLE */
+.stop-table-wrap{overflow-x:auto}
+table.st{width:100%;border-collapse:collapse;font-size:12px}
+.st th{
+  text-align:left;padding:8px 14px;
+  font-size:9px;font-family:var(--font-mono);
+  text-transform:uppercase;letter-spacing:1px;
+  color:var(--text3);border-bottom:1px solid var(--wire);font-weight:400;
+}
+.st td{
+  padding:9px 14px;border-bottom:1px solid rgba(34,51,82,.5);
+  vertical-align:middle;
+}
+.st tr:last-child td{border:none}
+.st tr:hover td{background:var(--ink3)}
+.st-stop{font-weight:500;color:var(--text)}
+.bar-cell{display:flex;align-items:center;gap:7px}
+.bar-mini{height:4px;border-radius:2px;min-width:4px;transition:width .4s}
+.bar-num{font-family:var(--font-mono);font-size:10px;color:var(--text2)}
+.st-total{font-family:var(--font-mono);font-size:11px;color:var(--text2)}
+.stop-empty{padding:24px;text-align:center;font-size:11px;font-family:var(--font-mono);color:var(--text3)}
+
+/* ═══════════════════════════════ FOOTER */
+footer{
+  background:var(--ink2);border-top:1px solid var(--wire);
+  padding:10px 28px;display:flex;align-items:center;justify-content:space-between;
+  font-size:10px;font-family:var(--font-mono);color:var(--text3);
+  letter-spacing:.5px;
+}
+.footer-right{display:flex;align-items:center;gap:16px}
+
+/* ═══════════════════════════════ ANIMATIONS */
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes countUp{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+.slide-up{animation:slideUp .4s ease both}
+.s1{animation-delay:.05s}.s2{animation-delay:.1s}.s3{animation-delay:.15s}.s4{animation-delay:.2s}
+.s5{animation-delay:.25s}.s6{animation-delay:.3s}.s7{animation-delay:.35s}
+
+/* number flash on update */
+@keyframes flash{0%{color:#fff}100%{}}
+.flash{animation:flash .4s ease}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ═══════════ HEADER -->
+<header>
+  <div class="hd-left">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 6a2 2 0 012-2h14a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V6z"/>
+        <path d="M3 10h18M7 17v2M17 17v2M8 6v4M12 6v4M16 6v4" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+      </svg>
+    </div>
+    <div class="brand-stack">
+      <div class="brand-name">BusGate</div>
+      <div class="brand-tagline">Passenger Intelligence System</div>
+    </div>
+  </div>
+  <div class="hd-center">
+    <div class="nav-pill active" onclick="setView('dashboard',this)">Dashboard</div>
+    <div class="nav-pill" onclick="setView('camera',this)">Camera</div>
+    <div class="nav-pill" onclick="setView('analytics',this)">Analytics</div>
+  </div>
+  <div class="hd-right">
+    <div class="conn-badge">
+      <span class="conn-dot" id="wsDot"></span>
+      <span id="wsLabel">connecting</span>
+    </div>
+    <div class="clock" id="clockEl">00:00:00</div>
+  </div>
+</header>
+
+<!-- ═══════════ MAIN -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">Fleet — 4 buses</div>
+    <div id="busCards"></div>
+
+    <div class="sidebar-section" style="margin-top:16px">System status</div>
+    <div class="alert-card ok" id="alertCard">
+      <div class="alert-icon">— Status</div>
+      <div class="alert-msg" id="alertMsg">All buses operating normally</div>
+    </div>
+
+    <div class="sidebar-section" style="margin-top:16px">Quick stats</div>
+    <div style="background:var(--ink3);border:1px solid var(--wire);border-radius:var(--r);padding:13px 14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">Peak hour</span>
+        <span style="font-size:11px;font-family:var(--font-mono);color:var(--amber)" id="peakHour">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">Busiest stop</span>
+        <span style="font-size:11px;font-family:var(--font-mono);color:var(--blue)" id="busiestStop">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">Events today</span>
+        <span style="font-size:11px;font-family:var(--font-mono);color:var(--teal)" id="eventCount">0</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="content">
+
+    <!-- METRIC STRIP -->
+    <div class="metric-strip">
+      <div class="mcard slide-up s1">
+        <div class="mcard-corner" style="background:var(--teal)"></div>
+        <div class="mcard-lbl">Boarded today</div>
+        <div class="mcard-val" id="mBoard" style="color:var(--teal)">0</div>
+        <div class="mcard-sub">passengers entered</div>
+        <div class="mcard-delta delta-up" id="dBoard">+0 this hour</div>
+      </div>
+      <div class="mcard slide-up s2">
+        <div class="mcard-corner" style="background:var(--red)"></div>
+        <div class="mcard-lbl">Deboarded today</div>
+        <div class="mcard-val" id="mDeboard" style="color:var(--red)">0</div>
+        <div class="mcard-sub">passengers exited</div>
+        <div class="mcard-delta delta-dn" id="dDeboard">+0 this hour</div>
+      </div>
+      <div class="mcard slide-up s3">
+        <div class="mcard-corner" style="background:var(--blue)"></div>
+        <div class="mcard-lbl">On buses now</div>
+        <div class="mcard-val" id="mNet" style="color:var(--blue)">0</div>
+        <div class="mcard-sub">current occupancy</div>
+        <div class="mcard-delta delta-neutral">net live count</div>
+      </div>
+      <div class="mcard slide-up s4">
+        <div class="mcard-corner" style="background:var(--amber)"></div>
+        <div class="mcard-lbl">Active buses</div>
+        <div class="mcard-val" id="mBuses" style="color:var(--amber)">4</div>
+        <div class="mcard-sub">in service now</div>
+        <div class="mcard-delta delta-neutral">of 4 total fleet</div>
+      </div>
+    </div>
+
+    <!-- CAMERA PANEL -->
+    <div class="cam-panel slide-up s5">
+      <div class="cam-header">
+        <div class="cam-title-group">
+          <div class="cam-title">Live door camera — <span id="camBusLabel" style="color:var(--teal)">no bus selected</span></div>
+          <div class="cam-subtitle">Select a bus from the sidebar, then connect camera</div>
+        </div>
+        <div class="cam-actions">
+          <button class="btn btn-go" id="btnStart" onclick="startCam()">Connect camera</button>
+          <button class="btn btn-stop" id="btnStop" onclick="stopCam()" disabled>Disconnect</button>
+          <button class="btn btn-reset" onclick="resetDay()">Reset day</button>
+        </div>
+      </div>
+      <div class="cam-body">
+        <div class="cam-view">
+          <img id="camFeed"/>
+          <div class="cam-idle" id="camIdle">
+            <div class="cam-idle-icon">
+              <svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            </div>
+            <p>No camera connected</p>
+            <small>Select a bus then click Connect camera</small>
+          </div>
+          <div class="rec-badge" id="recBadge">
+            <span class="conn-dot live"></span> REC
+          </div>
+        </div>
+        <div class="cam-stats">
+          <div class="cs-item">
+            <div class="cs-lbl">Session boarded</div>
+            <div class="cs-val green" id="camBoard">0</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-lbl">Session deboarded</div>
+            <div class="cs-val red" id="camDeboard">0</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-lbl">Active tracks</div>
+            <div class="cs-val plain" id="camTracks">0</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-lbl">Frame rate</div>
+            <div class="cs-val blue" id="camFps">0 fps</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-lbl">Detection engine</div>
+            <div class="cs-mode" id="camMode">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="line-strip">
+        <span class="line-lbl">Detection line</span>
+        <input type="range" id="linePos" min="10" max="90" value="50" step="1"
+               oninput="document.getElementById('linePosVal').textContent=this.value+'%'"/>
+        <span class="line-val" id="linePosVal">50%</span>
+        <span class="line-lbl" style="opacity:.5">Adjust to match door position in frame</span>
+      </div>
+    </div>
+
+    <!-- CHARTS ROW -->
+    <div class="two-col slide-up s6">
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Hourly flow</span>
+          <span style="font-size:9px;font-family:var(--font-mono);color:var(--text3)">today</span>
+        </div>
+        <div class="chart-body" style="height:200px">
+          <canvas id="hourlyChart"></canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Boarding by stop</span>
+          <span style="font-size:9px;font-family:var(--font-mono);color:var(--text3)">all routes</span>
+        </div>
+        <div class="chart-body" style="height:200px">
+          <canvas id="stopChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOG + STOP TABLE -->
+    <div class="two-col slide-up s7">
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Event log</span>
+          <button class="panel-action" onclick="clearLog()">Clear</button>
+        </div>
+        <div class="log-scroll" id="logScroll">
+          <div class="log-empty">No events recorded yet</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Stop analysis</span>
+          <span style="font-size:9px;font-family:var(--font-mono);color:var(--text3)" id="stopCount">0 stops</span>
+        </div>
+        <div class="stop-table-wrap">
+          <table class="st">
+            <thead>
+              <tr>
+                <th>Stop</th>
+                <th>Boarded</th>
+                <th>Deboarded</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="stopBody"></tbody>
+          </table>
+          <div class="stop-empty" id="stopEmpty">No stop data yet</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══════════ FOOTER -->
+<footer>
+  <span>BusGate v2.0 — Real-time Camera Passenger Detection &nbsp;·&nbsp; Built for Odisha Transit Authority</span>
+  <div class="footer-right">
+    <span id="footerDate">—</span>
+    <span id="footerStats">0 events today</span>
+  </div>
+</footer>
+
+</div><!-- /shell -->
+
+<script>
+const API     = 'http://localhost:8000';
+const WS_BASE = 'ws://localhost:8000';
+
+let ws = null, camWs = null;
+let logs = [], stopData = {}, buses = {};
+let selectedBus = 'B-101';
+let hourlyBoard   = new Array(18).fill(0);
+let hourlyDeboard = new Array(18).fill(0);
+const HOURS = Array.from({length:18},(_,i)=>`${5+i}h`);
+let totalBoard = 0, totalDeboard = 0;
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────
+function tick(){
+  const d = new Date();
+  document.getElementById('clockEl').textContent =
+    `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+}
+setInterval(tick,1000); tick();
+
+function setFooterDate(){
+  const d = new Date();
+  document.getElementById('footerDate').textContent =
+    d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+}
+setFooterDate();
+
+// ── VIEWS ─────────────────────────────────────────────────────────────────
+function setView(v,el){
+  document.querySelectorAll('.nav-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ── WEBSOCKET ─────────────────────────────────────────────────────────────
+function connectWS(){
+  try{
+    ws = new WebSocket(`${WS_BASE}/ws/dashboard`);
+    ws.onopen = ()=>{
+      document.getElementById('wsDot').classList.add('live');
+      document.getElementById('wsLabel').textContent = 'live';
+    };
+    ws.onmessage = e => handleMsg(JSON.parse(e.data));
+    ws.onclose = ()=>{
+      document.getElementById('wsDot').classList.remove('live');
+      document.getElementById('wsLabel').textContent = 'reconnecting';
+      setTimeout(connectWS,3000);
+    };
+    ws.onerror = ()=> ws.close();
+    setInterval(()=>{ if(ws&&ws.readyState===1) ws.send('ping'); },15000);
+  } catch(e){
+    document.getElementById('wsLabel').textContent = 'offline';
+    setTimeout(connectWS,5000);
+  }
+}
+
+function handleMsg(msg){
+  if(msg.type==='event'){
+    const h = new Date(msg.timestamp).getHours();
+    const i = Math.max(0,Math.min(17,h-5));
+    if(msg.event_type==='BOARD'){ totalBoard+=msg.count; hourlyBoard[i]+=msg.count; }
+    else { totalDeboard+=msg.count; hourlyDeboard[i]+=msg.count; }
+    addLog(msg);
+    updateStopData(msg.stop_name,msg.event_type,msg.count);
+    updateMetrics(); updateCharts(); updateQuickStats(); updateFooter();
+  }
+  if(msg.type==='bus_update' && buses[msg.bus_id]){
+    Object.assign(buses[msg.bus_id],msg); renderBusCards();
+  }
+  if(msg.type==='reset'){
+    totalBoard=0;totalDeboard=0;
+    hourlyBoard.fill(0);hourlyDeboard.fill(0);
+    stopData={};logs=[];
+    updateMetrics();updateCharts();renderLog();renderStopTable();updateFooter();
+  }
+}
+
+// ── FETCH INITIAL DATA ────────────────────────────────────────────────────
+async function fetchSummary(){
+  try{
+    const r = await fetch(`${API}/api/summary`);
+    const d = await r.json();
+    totalBoard = d.total_board; totalDeboard = d.total_deboard;
+    for(const h of d.hourly){
+      const i = Math.max(0,Math.min(17,h.hour-5));
+      hourlyBoard[i]=h.boarded; hourlyDeboard[i]=h.deboarded;
+    }
+    for(const s of d.by_stop) stopData[s.stop_name]={b:s.boarded,d:s.deboarded};
+    for(const b of d.buses) buses[b.bus_id]=b;
+    updateMetrics();updateCharts();renderBusCards();renderStopTable();updateFooter();updateQuickStats();
+  } catch(e){
+    buses={
+      'B-101':{bus_id:'B-101',route:'Route 12A',capacity:80,occupancy:0,status:'active',current_stop:'Central Station'},
+      'B-102':{bus_id:'B-102',route:'Route 7B', capacity:80,occupancy:0,status:'active',current_stop:'Market Square'},
+      'B-103':{bus_id:'B-103',route:'Route 3C', capacity:60,occupancy:0,status:'active',current_stop:'University'},
+      'B-104':{bus_id:'B-104',route:'Route 9D', capacity:80,occupancy:0,status:'idle',  current_stop:'Depot'},
+    };
+    renderBusCards();
+  }
+}
+
+// ── BUS CARDS ─────────────────────────────────────────────────────────────
+function renderBusCards(){
+  const el = document.getElementById('busCards');
+  el.innerHTML = Object.values(buses).map(b=>{
+    const pct = Math.round(b.occupancy/b.capacity*100);
+    const col = pct>85?'var(--red)':pct>60?'var(--amber)':'var(--teal)';
+    const sel = b.bus_id===selectedBus?' sel':'';
+    return `<div class="bus-card${sel}" onclick="selectBus('${b.bus_id}')">
+      <div class="bc-top">
+        <span class="bc-id">${b.bus_id}</span>
+        <span class="bc-badge ${b.status==='active'?'active':'idle'}">${b.status}</span>
+      </div>
+      <div class="bc-route">${b.route}</div>
+      <div class="bc-stop">${b.current_stop}</div>
+      <div class="bc-occ-row">
+        <span class="bc-occ-nums">${b.occupancy}/${b.capacity}</span>
+        <span class="bc-occ-pct" style="color:${col}">${pct}%</span>
+      </div>
+      <div class="occ-track"><div class="occ-fill" style="width:${pct}%;background:${col}"></div></div>
+    </div>`;
+  }).join('');
+
+  const over = Object.values(buses).filter(b=>b.occupancy/b.capacity>0.85);
+  const ac = document.getElementById('alertCard');
+  const am = document.getElementById('alertMsg');
+  if(over.length){
+    ac.className='alert-card warn';
+    am.textContent = over.map(b=>`${b.bus_id} near capacity (${b.occupancy}/${b.capacity})`).join(' · ');
+  } else {
+    ac.className='alert-card ok';
+    am.textContent='All buses operating normally';
+  }
+  const active = Object.values(buses).filter(b=>b.status==='active').length;
+  animNum('mBuses',active);
+}
+
+function selectBus(id){
+  selectedBus=id;
+  renderBusCards();
+  const b=buses[id];
+  document.getElementById('camBusLabel').textContent=`${id} — ${b?.route||''}`;
+}
+
+// ── METRICS ───────────────────────────────────────────────────────────────
+function animNum(id,val){
+  const el=document.getElementById(id);
+  if(el.textContent!==String(val)){
+    el.textContent=val;
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
+  }
+}
+function updateMetrics(){
+  animNum('mBoard',totalBoard);
+  animNum('mDeboard',totalDeboard);
+  animNum('mNet',Math.max(0,totalBoard-totalDeboard));
+  const h=new Date().getHours();
+  const i=Math.max(0,Math.min(17,h-5));
+  document.getElementById('dBoard').textContent=`+${hourlyBoard[i]} this hour`;
+  document.getElementById('dDeboard').textContent=`+${hourlyDeboard[i]} this hour`;
+}
+
+// ── QUICK STATS ───────────────────────────────────────────────────────────
+function updateQuickStats(){
+  const peakIdx=hourlyBoard.indexOf(Math.max(...hourlyBoard));
+  document.getElementById('peakHour').textContent=
+    Math.max(...hourlyBoard)>0 ? HOURS[peakIdx] : '—';
+  const entries=Object.entries(stopData).filter(([,v])=>v.b||v.d);
+  if(entries.length){
+    const top=entries.sort((a,b)=>(b[1].b+b[1].d)-(a[1].b+a[1].d))[0];
+    const name=top[0]; const short=name.length>12?name.slice(0,12)+'…':name;
+    document.getElementById('busiestStop').textContent=short;
+  } else {
+    document.getElementById('busiestStop').textContent='—';
+  }
+  document.getElementById('eventCount').textContent=logs.length;
+}
+
+// ── LOG ───────────────────────────────────────────────────────────────────
+function addLog(msg){ logs.unshift(msg); if(logs.length>120)logs.pop(); renderLog(); }
+function clearLog(){ logs=[]; renderLog(); }
+function renderLog(){
+  const el=document.getElementById('logScroll');
+  if(!logs.length){el.innerHTML='<div class="log-empty">No events recorded yet</div>';return;}
+  el.innerHTML=logs.slice(0,50).map(l=>{
+    const t=new Date(l.timestamp);
+    const ts=`${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+    const conf=l.confidence?`${Math.round(l.confidence*100)}%`:'';
+    return `<div class="log-entry ${l.event_type}">
+      <span class="log-t">${ts}</span>
+      <span class="log-bus-tag">${l.bus_id||''}</span>
+      <span class="log-type-tag ${l.event_type==='BOARD'?'lt-board':'lt-deboard'}">${l.event_type}</span>
+      <span class="log-stop">${l.stop_name||''}</span>
+      <span class="log-conf">${conf}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── STOP TABLE ────────────────────────────────────────────────────────────
+function updateStopData(stop,type,count){
+  if(!stopData[stop])stopData[stop]={b:0,d:0};
+  if(type==='BOARD')stopData[stop].b+=count;
+  else stopData[stop].d+=count;
+  renderStopTable();
+}
+function renderStopTable(){
+  const body=document.getElementById('stopBody');
+  const empty=document.getElementById('stopEmpty');
+  const sc=document.getElementById('stopCount');
+  const entries=Object.entries(stopData).filter(([,v])=>v.b||v.d)
+    .sort((a,b)=>(b[1].b+b[1].d)-(a[1].b+a[1].d));
+  sc.textContent=`${entries.length} stop${entries.length!==1?'s':''}`;
+  if(!entries.length){body.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  const maxB=Math.max(...entries.map(([,v])=>v.b),1);
+  const maxD=Math.max(...entries.map(([,v])=>v.d),1);
+  body.innerHTML=entries.map(([name,v])=>`
+    <tr>
+      <td class="st-stop">${name}</td>
+      <td>
+        <div class="bar-cell">
+          <div class="bar-mini" style="width:${Math.max(4,Math.round(v.b/maxB*64))}px;background:var(--teal)"></div>
+          <span class="bar-num">${v.b}</span>
+        </div>
+      </td>
+      <td>
+        <div class="bar-cell">
+          <div class="bar-mini" style="width:${Math.max(4,Math.round(v.d/maxD*64))}px;background:var(--red)"></div>
+          <span class="bar-num">${v.d}</span>
+        </div>
+      </td>
+      <td class="st-total">${v.b+v.d}</td>
+    </tr>`).join('');
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────
+let hourlyChart, stopChart;
+function initCharts(){
+  const hCtx=document.getElementById('hourlyChart').getContext('2d');
+  hourlyChart=new Chart(hCtx,{
+    type:'bar',
+    data:{
+      labels:HOURS,
+      datasets:[
+        {label:'Boarded',data:[...hourlyBoard],backgroundColor:'rgba(0,229,180,.65)',borderRadius:3,borderSkipped:false},
+        {label:'Deboarded',data:[...hourlyDeboard],backgroundColor:'rgba(255,71,87,.60)',borderRadius:3,borderSkipped:false}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(34,51,82,.5)'},ticks:{color:'#3d5470',font:{size:9},maxRotation:0}},
+        y:{grid:{color:'rgba(34,51,82,.5)'},ticks:{color:'#3d5470',font:{size:9},stepSize:1}}
+      }
+    }
+  });
+  const sCtx=document.getElementById('stopChart').getContext('2d');
+  const stopLabels=['Central Station','Market Square','University','Hospital','Park & Ride','Airport T1'];
+  stopChart=new Chart(sCtx,{
+    type:'bar',
+    data:{
+      labels:stopLabels,
+      datasets:[
+        {label:'Boarded',data:stopLabels.map(s=>stopData[s]?.b||0),backgroundColor:'rgba(0,229,180,.65)',borderRadius:3,borderSkipped:false},
+        {label:'Deboarded',data:stopLabels.map(s=>stopData[s]?.d||0),backgroundColor:'rgba(255,71,87,.60)',borderRadius:3,borderSkipped:false}
+      ]
+    },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(34,51,82,.5)'},ticks:{color:'#3d5470',font:{size:9}}},
+        y:{grid:{display:false},ticks:{color:'#3d5470',font:{size:9}}}
+      }
+    }
+  });
+}
+function updateCharts(){
+  if(!hourlyChart)return;
+  hourlyChart.data.datasets[0].data=[...hourlyBoard];
+  hourlyChart.data.datasets[1].data=[...hourlyDeboard];
+  hourlyChart.update('none');
+  const stopLabels=['Central Station','Market Square','University','Hospital','Park & Ride','Airport T1'];
+  stopChart.data.datasets[0].data=stopLabels.map(s=>stopData[s]?.b||0);
+  stopChart.data.datasets[1].data=stopLabels.map(s=>stopData[s]?.d||0);
+  stopChart.update('none');
+}
+
+// ── CAMERA WS ─────────────────────────────────────────────────────────────
+function startCam(){
+  if(!selectedBus){alert('Select a bus from the sidebar first.');return;}
+  document.getElementById('btnStart').disabled=true;
+  document.getElementById('btnStop').disabled=false;
+  document.getElementById('recBadge').style.display='flex';
+  const line=document.getElementById('linePos').value/100;
+  camWs=new WebSocket(`${WS_BASE}/ws/camera/${selectedBus}?camera_index=0&line_ratio=${line}`);
+  camWs.onmessage=e=>{
+    const msg=JSON.parse(e.data);
+    if(msg.type==='frame'){
+      const img=document.getElementById('camFeed');
+      img.src='data:image/jpeg;base64,'+msg.frame;
+      img.style.display='block';
+      document.getElementById('camIdle').style.display='none';
+      document.getElementById('camBoard').textContent=msg.board_count;
+      document.getElementById('camDeboard').textContent=msg.deboard_count;
+      document.getElementById('camTracks').textContent=msg.active_tracks;
+      document.getElementById('camFps').textContent=msg.fps+' fps';
+      document.getElementById('camMode').textContent='YOLOv8 + motion tracker';
+    }
+    if(msg.type==='error'){
+      document.getElementById('camMode').textContent=msg.msg;
+      stopCam();
+    }
+  };
+  camWs.onerror=()=>{
+    document.getElementById('camMode').textContent='Connection failed — is backend running?';
+    stopCam();
+  };
+  camWs.onclose=()=>{
+    document.getElementById('btnStart').disabled=false;
+    document.getElementById('btnStop').disabled=true;
+  };
+  document.getElementById('camMode').textContent='Connecting...';
+}
+
+function stopCam(){
+  if(camWs)camWs.close();
+  document.getElementById('camFeed').style.display='none';
+  document.getElementById('camIdle').style.display='flex';
+  document.getElementById('recBadge').style.display='none';
+  document.getElementById('btnStart').disabled=false;
+  document.getElementById('btnStop').disabled=true;
+  document.getElementById('camMode').textContent='—';
+}
+
+async function resetDay(){
+  if(!confirm('Reset all passenger data for today?'))return;
+  try{
+    await fetch(`${API}/api/events/reset`,{method:'DELETE'});
+  } catch(e){
+    handleMsg({type:'reset'});
+  }
+}
+
+function updateFooter(){
+  document.getElementById('footerStats').textContent=
+    `${logs.length} events — ${totalBoard} boarded · ${totalDeboard} deboarded`;
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  initCharts();
+  fetchSummary();
+  connectWS();
+  selectBus('B-101');
+});
+</script>
+</body>
+</html>
